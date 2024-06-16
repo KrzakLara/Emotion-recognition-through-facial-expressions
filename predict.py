@@ -15,11 +15,12 @@ def prepare_image(img_path, img_size=(224, 224)):
     img_array /= 255.0
     return img_array
 
-def predict_emotion(model, img_path):
+def predict_emotion(model, img_path, n_predictions=5):
     img = prepare_image(img_path)
-    prediction = model.predict(img)
-    predicted_class = np.argmax(prediction, axis=1)[0]
-    return emotion_labels[predicted_class], prediction
+    predictions = np.array([model.predict(img) for _ in range(n_predictions)])
+    mean_prediction = np.mean(predictions, axis=0)
+    predicted_class = np.argmax(mean_prediction, axis=1)[0]
+    return emotion_labels[predicted_class], mean_prediction
 
 if __name__ == "__main__":
     model_paths = [

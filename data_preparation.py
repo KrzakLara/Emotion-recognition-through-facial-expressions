@@ -1,6 +1,17 @@
+import os
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
+# Suppress all TensorFlow warnings and logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+tf.get_logger().setLevel('ERROR')
+
+# Additional logging suppression
+import logging
+logger = tf.get_logger()
+logger.disabled = True
+logger.propagate = False
 
 def load_and_preprocess_data(train_dir, val_dir, img_size=(224, 224), batch_size=32):
     train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
@@ -23,7 +34,6 @@ def load_and_preprocess_data(train_dir, val_dir, img_size=(224, 224), batch_size
 
     return train_dataset, validation_dataset
 
-
 def display_sample_images(dataset, class_names):
     plt.figure(figsize=(10, 10))
     for images, labels in dataset.take(1):
@@ -34,10 +44,9 @@ def display_sample_images(dataset, class_names):
             plt.axis("off")
     plt.show()
 
-
 if __name__ == "__main__":
-    train_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/train'
-    validation_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/validation'
+    train_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/rebalanced_train'
+    validation_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/rebalanced_validation'
 
     # Load and preprocess datasets
     train_dataset, validation_dataset = load_and_preprocess_data(train_data_path, validation_data_path)

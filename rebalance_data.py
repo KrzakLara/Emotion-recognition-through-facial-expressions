@@ -1,61 +1,53 @@
-import tensorflow as tf
 import os
+import random
+import shutil
 
-def load_and_rebalance_data(data_path, image_size=(224, 224), batch_size=32, max_samples_per_class=500):
-    dataset = tf.keras.preprocessing.image_dataset_from_directory(
-        data_path,
-        image_size=image_size,
-        batch_size=batch_size,
-        label_mode='categorical'
-    )
+# Define the data paths
+train_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/train'
+validation_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/validation'
+rebalanced_train_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/rebalanced_train'
+rebalanced_validation_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/rebalanced_validation'
 
-    class_datasets = {}
-    for images, labels in dataset:
-        for i, label in enumerate(labels):
-            class_name = dataset.class_names[tf.argmax(label).numpy()]
-            if class_name not in class_datasets:
-                class_datasets[class_name] = []
-            if len(class_datasets[class_name]) < max_samples_per_class:
-                class_datasets[class_name].append((images[i], labels[i]))
+# Function to rebalance data
+def rebalance_data(source_dir, target_dir, exact_count):
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
 
-    balanced_datasets = []
-    for class_name, samples in class_datasets.items():
-        balanced_datasets.append(tf.data.Dataset.from_tensor_slices(samples))
+    for class_dir in os.listdir(source_dir):
+        source_class_dir = os.path.join(source_dir, class_dir)
+        target_class_dir = os.path.join(target_dir, class_dir)
+        if not os.path.exists(target_class_dir):
+            os.makedirs(target_class_dir)
 
-    balanced_dataset = tf.data.experimental.sample_from_datasets(balanced_datasets)
-    return balanced_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        files = os.listdir(source_class_dir)
+        if len(files) >= exact_count:
+            files = random.sample(files, exact_count)
+        else:
+            raise ValueError(f"Not enough images in {class_dir} to meet the exact count of {exact_count}")
 
-def augment(image, label):
-    image = tf.image.random_flip_left_right(image)
-    image = tf.image.random_flip_up_down(image)
-    image = tf.image.random_brightness(image, max_delta=0.2)
-    image = tf.image.random_contrast(image, lower=0.8, upper=1.2)
-    return image, label
+        for file in files:
+            source_file = os.path.join(source_class_dir, file)
+            target_file = os.path.join(target_class_dir, file)
+            shutil.copy(source_file, target_file)
 
-def load_model(model_path):
-    return tf.keras.models.load_model(model_path, compile=False)
+# Exact count for train and validation datasets
+train_exact_count = min([len(os.listdir(os.path.join(train_data_path, class_dir))) for class_dir in os.listdir(train_data_path)])
+validation_exact_count = min([len(os.listdir(os.path.join(validation_data_path, class_dir))) for class_dir in os.listdir(validation_data_path)])
 
-if __name__ == "__main__":
-    train_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/train'
-    validation_data_path = 'C:/Users/larak/Desktop/ORV/CVProject/dataset/validation'
+# Rebalance train and validation datasets
+rebalance_data(train_data_path, rebalanced_train_path, train_exact_count)
+rebalance_data(validation_data_path, rebalanced_validation_path, validation_exact_count)
 
-    train_dataset = load_and_rebalance_data(train_data_path)
-    validation_dataset = load_and_rebalance_data(validation_data_path)
+# Display the number of images in each class after rebalancing
+def display_counts(data_path):
+    print(f"Image counts in {data_path}:")
+    for class_dir in os.listdir(data_path):
+        class_path = os.path.join(data_path, class_dir)
+        num_images = len(os.listdir(class_path))
+        print(f"{class_dir}: {num_images} images")
 
-    train_dataset = train_dataset.map(augment)
+print("Rebalanced Training Data Counts:")
+display_counts(rebalanced_train_path)
 
-    model_path = 'C:/Users/larak/Desktop/ORV/CVProject/emotion_recognition_model_enriched.keras'
-    model = load_model(model_path)
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-
-    model.fit(train_dataset, epochs=2, validation_data=validation_dataset)
-
-    y_true = []
-    y_pred = []
-    for images, labels in validation_dataset:
-        predictions = model.predict(images)
-        y_true.extend(tf.argmax(labels, axis=1).numpy())
-        y_pred.extend(tf.argmax(predictions, axis=1).numpy())
-
-    from sklearn.metrics import classification_report
-    print(classification_report(y_true, y_pred, target_names=validation_dataset.class_names))
+print("\nRebalanced Validation Data Counts:")
+display_counts(rebalanced_validation_path)
